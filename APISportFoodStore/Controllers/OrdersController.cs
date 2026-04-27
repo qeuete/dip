@@ -106,22 +106,39 @@ namespace APISportFoodStore.Controllers
         {
             _context.Orders.Add(order);
             await _context.SaveChangesAsync();
-            var user = await _context.Users.AsNoTracking()
-                .Where(u => u.IdUser == order.UserId)
-                .Select(u => new { u.Name, u.Email })
-                .FirstOrDefaultAsync();
 
-            if (!string.IsNullOrWhiteSpace(user?.Email))
+            return CreatedAtAction(nameof(GetOrder), new { id = order.IdOrder }, order);
+        }
+
+
+        [HttpPost("send-notifications/{orderId}")]
+            public async Task<IActionResult> SendNotifications(int orderId)
             {
+                var order = await _context.Orders.AsNoTracking()
+                    .FirstOrDefaultAsync(o => o.IdOrder == orderId);
+
+                if (order == null)
+                    return NotFound();
+
+                var user = await _context.Users.AsNoTracking()
+                    .Where(u => u.IdUser == order.UserId)
+                    .Select(u => new { u.Name, u.Email })
+                    .FirstOrDefaultAsync();
+
                 var items = await _context.OrderDetails.AsNoTracking()
-                    .Where(od => od.OrderId == order.IdOrder)
+                    .Where(od => od.OrderId == orderId)
                     .Join(_context.Products.AsNoTracking(),
                           od => od.ProductId,
                           p => p.IdProduct,
-                         (od, p) => new { p.Name, od.Quantity, od.Price })
+                          (od, p) => new { p.Name, od.Quantity, od.Price })
                     .ToListAsync();
 
                 var tupleItems = items.Select(i => (i.Name, i.Quantity, i.Price)).ToList();
+
+                var address = await _context.UserAddresses.AsNoTracking()
+                    .Where(a => a.IdAddress == order.AddressId)
+                    .Select(a => $"{a.City}, {a.Street}, д. {a.House}, кв. {a.Apartament}")
+                    .FirstOrDefaultAsync() ?? "Адрес не указан";
 
                 var safeOrder = new Order
                 {
@@ -130,30 +147,40 @@ namespace APISportFoodStore.Controllers
                     TotalAmount = order.TotalAmount
                 };
 
-                await _email.SendOrderConfirmationAsync(
-                    toEmail: user.Email!,
-                    fullName: user.Name ?? "Клиент",
-                    order: safeOrder,
-                    items: tupleItems
-                );
+                if (!string.IsNullOrWhiteSpace(user?.Email))
+                {
+                    await _email.SendOrderConfirmationAsync(
+                        user.Email,
+                        user.Name ?? "Клиент",
+                        safeOrder,
+                        tupleItems
+                    );
+
+                    await _email.SendManagerNewOrderNotificationAsync(
+                        safeOrder,
+                        user.Name ?? "Клиент",
+                        user.Email,
+                        address,
+                        tupleItems
+                    );
+                }
+
+                return Ok();
             }
 
-            return CreatedAtAction(nameof(GetOrder), new { id = order.IdOrder }, order);
-        }
-
-        // DELETE: api/Orders/5
-        [HttpDelete("{id}")]
+            // DELETE: api/Orders/5
+            [HttpDelete("{id}")]
         public async Task<IActionResult> DeleteOrder(int? id)
-        {
-            var order = await _context.Orders.FindAsync(id);
-            if (order == null)
-                return NotFound();
+            {
+                var order = await _context.Orders.FindAsync(id);
+                if (order == null)
+                    return NotFound();
 
-            _context.Orders.Remove(order);
-            await _context.SaveChangesAsync();
+                _context.Orders.Remove(order);
+                await _context.SaveChangesAsync();
 
-            return NoContent();
-        }
+                return NoContent();
+            }
 
         private bool OrderExists(int? id)
         {
@@ -287,7 +314,26 @@ namespace APISportFoodStore.Controllers
             await _context.SaveChangesAsync();
             return NoContent();
         }
+
+        // PATCH: api/Orders/cancel/5
+        [HttpPatch("{id}/cancel")]
+        public async Task<IActionResult> CancelOrder(int id)
+        {
+            var order = await _context.Orders.FindAsync(id);
+            if (order == null)
+                return NotFound();
+            if (order.OrderStatusId != 1)
+                return BadRequest("Заказ нельзя отменить");
+
+            // 7 = "Отменен" (или твой статус)
+            order.OrderStatusId = 8;
+
+            await _context.SaveChangesAsync();
+
+            return Ok();
+        }
     }
+
 
     public class OrderWithDetailsDto
     {

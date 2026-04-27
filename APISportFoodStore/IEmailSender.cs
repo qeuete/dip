@@ -21,6 +21,12 @@
 
             Task SendPasswordResetAsync(string toEmail, string fullName, string resetLink);
 
-            Task SendCourierAssignmentAsync(string courierEmail, string courierName, Order order);
+        Task SendCourierAssignmentAsync(string courierEmail, string courierName, Order order, string deliveryAddress);
+        Task SendManagerNewOrderNotificationAsync(
+                Order order,
+                string customerName,
+                string customerEmail,
+                string customerAddress,
+                IEnumerable<(string Name, int Quantity, decimal Price)> items);
     }
     }
