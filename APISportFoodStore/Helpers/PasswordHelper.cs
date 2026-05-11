@@ -15,5 +15,11 @@ namespace APISportFoodStore.Helpers
             var hash = sha256.ComputeHash(bytes);
             return Convert.ToBase64String(hash);
         }
+        public static string HashEmail(string email)
+        {
+            if (string.IsNullOrWhiteSpace(email)) return string.Empty;
+            var normalizedEmail = email.Trim().ToLowerInvariant();
+            return Hash(normalizedEmail);
+        }
     }
 }

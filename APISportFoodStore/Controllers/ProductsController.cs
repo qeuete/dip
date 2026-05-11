@@ -54,7 +54,6 @@ namespace APISportFoodStore.Controllers
         }
 
         // GET: api/products/with-details
-        // Детальная выдача с именами категории и производителя (Unit — строка из продукта)
         [HttpGet("with-details")]
         public async Task<ActionResult> GetProductsWithDetails()
         {
@@ -101,13 +100,11 @@ namespace APISportFoodStore.Controllers
             if (product == null)
                 return BadRequest("Product data is null");
 
-            // валидация справочников
             var category = await _context.Categories.FindAsync(product.CategoryId);
             var manufacturer = await _context.Manufacturers.FindAsync(product.ManufacturerId);
             if (category == null || category.Deleted || manufacturer == null || manufacturer.Deleted)
                 return BadRequest("Invalid category or manufacturer.");
 
-            // если артикул пуст — сгенерируем
             if (string.IsNullOrWhiteSpace(product.Article))
                 product.Article = await GenerateUniqueArticle();
 
@@ -134,20 +131,17 @@ namespace APISportFoodStore.Controllers
         }
 
         // PUT: api/products/5
-        // PUT: api/products/5
         [HttpPut("{id}")]
         public async Task<IActionResult> PutProduct(int id, Product dto)
         {
             if (id != dto.IdProduct)
                 return BadRequest();
 
-            // 1) читаем текущий продукт (и проверяем, что он есть)
             var existing = await _context.Products
                 .FirstOrDefaultAsync(p => p.IdProduct == id && !p.Deleted);
             if (existing == null)
                 return NotFound();
 
-            // 2) валидация справочников (если менялись ссылки)
             var categoryOk = await _context.Categories.AnyAsync(c => c.IdCategory == dto.CategoryId && !c.Deleted);
             var manufacturerOk = await _context.Manufacturers.AnyAsync(m => m.IdManufacturer == dto.ManufacturerId && !m.Deleted);
             if (!categoryOk) return BadRequest("Invalid category.");
@@ -166,13 +160,11 @@ namespace APISportFoodStore.Controllers
             existing.IsAvailable = dto.IsAvailable;
             existing.Deleted = dto.Deleted;
 
-            // КБЖУ
             existing.CaloriesKcal = dto.CaloriesKcal;
             existing.ProteinG = dto.ProteinG;
             existing.FatG = dto.FatG;
             existing.CarbsG = dto.CarbsG;
 
-            // 4) сохраняем
             try
             {
                 await _context.SaveChangesAsync();
@@ -209,7 +201,6 @@ namespace APISportFoodStore.Controllers
 
 
         // GET: api/products/public
-        // Фильтры: search, sort(price_asc|price_desc), category
         [HttpGet("public")]
         public async Task<ActionResult<IEnumerable<ProductDto>>> GetPublicProducts(
             [FromQuery] string? search,
@@ -275,7 +266,6 @@ namespace APISportFoodStore.Controllers
                 .Select(p => p.Quantity)
                 .FirstOrDefaultAsync();
 
-            // Если товара нет, вернем 0
             return Ok(quantity);
         }
 

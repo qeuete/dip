@@ -54,10 +54,8 @@ namespace APISportFoodStore.Controllers
             if (user == null)
                 return NotFound();
 
-            // нормализация email
             var normalizedEmail = dto.Email?.Trim().ToLowerInvariant();
 
-            // если email меняется — проверяем уникальность среди активных
             if (!string.Equals(user.Email, normalizedEmail, StringComparison.OrdinalIgnoreCase))
             {
                 var emailTaken = await _context.Users
@@ -66,16 +64,14 @@ namespace APISportFoodStore.Controllers
                     return Conflict("Пользователь с таким email уже существует");
             }
 
-            // применяем изменения (пример — подставь свои поля)
             user.Email = normalizedEmail;
             user.Surname = dto.Surname;
             user.Name = dto.Name;
             user.MiddleName = dto.MiddleName ?? null;
             user.Phone = dto.Phone;
             user.RoleId = dto.RoleId;
-            user.Deleted = dto.Deleted; // если нужно запретить реанимацию при конфликте — см. проверку выше
+            user.Deleted = dto.Deleted; 
 
-            // пароль хэшируем, только если пришёл и отличается
             if (!string.IsNullOrWhiteSpace(dto.PasswordHash) && dto.PasswordHash != user.PasswordHash)
             {
                 user.PasswordHash = PasswordHelper.Hash(dto.PasswordHash);
@@ -102,7 +98,6 @@ namespace APISportFoodStore.Controllers
         {
             user.Deleted = false;
 
-            // Нормализация email
             user.Email = user.Email?.Trim().ToLowerInvariant();
 
             var emailTaken = await _context.Users.AnyAsync(u => u.Email == user.Email && !u.Deleted);
@@ -152,19 +147,26 @@ namespace APISportFoodStore.Controllers
         [HttpPost("authenticate")]
         public async Task<ActionResult<User>> Authenticate([FromBody] LoginModel model)
         {
-            Console.WriteLine("== POST /Users/authenticate ==");
-            Console.WriteLine($"Username: {model.Username}");
-
             if (string.IsNullOrWhiteSpace(model.Username) || string.IsNullOrWhiteSpace(model.Password))
                 return BadRequest("Логин и пароль обязательны");
 
-            var user = await _context.Users.FirstOrDefaultAsync(u => u.Email == model.Username && !u.Deleted);
+            // Хешируем входящий логин, чтобы найти совпадение в БД
+            var hashedInputEmail = PasswordHelper.HashEmail(model.Username);
+            Console.WriteLine($"Входной логин: {model.Username}");
+            Console.WriteLine($"Его хеш: {PasswordHelper.HashEmail(model.Username)}");
+
+            var userInDb = await _context.Users.IgnoreQueryFilters().FirstOrDefaultAsync();
+            if (userInDb != null)
+            {
+                Console.WriteLine($"Хеш первого юзера в БД: {userInDb.Email}");
+            }
+            var user = await _context.Users.FirstOrDefaultAsync(u => u.Email == hashedInputEmail && !u.Deleted);
             if (user == null) return Unauthorized();
 
-            var hashed = PasswordHelper.Hash(model.Password);
-            if (user.PasswordHash != hashed) return Unauthorized();
+            var hashedPass = PasswordHelper.Hash(model.Password);
+            if (user.PasswordHash != hashedPass) return Unauthorized();
 
-            Console.WriteLine("Аутентификация успешна.");
+            
             return Ok(user);
         }
 
@@ -173,7 +175,7 @@ namespace APISportFoodStore.Controllers
         {
             Console.WriteLine("== POST /Users/register ==");
 
-            user.Email = user.Email?.Trim().ToLowerInvariant();
+            user.Email = PasswordHelper.HashEmail(user.Email);
 
             if (string.IsNullOrWhiteSpace(user.Email) || string.IsNullOrWhiteSpace(user.PasswordHash))
                 return BadRequest("Email и пароль обязательны");
@@ -185,17 +187,27 @@ namespace APISportFoodStore.Controllers
             if (!IsStrongPassword(user.PasswordHash))
                 return BadRequest("Пароль слишком простой. Он должен содержать не менее 6 символов, включая заглавную букву, цифру и специальный символ.");
 
+            bool anyUsers = await _context.Users.AnyAsync();
+            if (!anyUsers)
+            {
+                user.RoleId = 2; // Первый пользователь становится админом
+            }
+            else
+            {
+                user.RoleId = 1; // Все остальные — обычные пользователи
+            }
+
             if (user.RoleId == 0)
                 user.RoleId = 1;
 
             user.Deleted = false;
             user.PasswordHash = PasswordHelper.Hash(user.PasswordHash);
-
             _context.Users.Add(user);
             await _context.SaveChangesAsync();
-
             Console.WriteLine("Пользователь успешно зарегистрирован.");
+
             return Ok(user);
+
         }
 
         private bool IsStrongPassword(string password)
@@ -213,16 +225,13 @@ namespace APISportFoodStore.Controllers
             if (id != dto.IdUser)
                 return BadRequest("Несовпадение id и dto.IdUser.");
 
-            // кто вызывает
             var requester = await _context.Users.FirstOrDefaultAsync(u => u.IdUser == requesterId && !u.Deleted);
             if (requester == null)
                 return Unauthorized("Запросивший пользователь не найден или удалён.");
 
-            // запрет редактировать самого себя
             if (requesterId == id)
                 return Forbid("Нельзя редактировать самого себя через этот метод.");
 
-            // цель редактирования
             var target = await _context.Users.FirstOrDefaultAsync(u => u.IdUser == id);
             if (target == null)
                 return NotFound("Редактируемый пользователь не найден.");
@@ -230,10 +239,8 @@ namespace APISportFoodStore.Controllers
             if (target.RoleId == 1)
                 return Forbid("Нельзя редактировать/удалять пользователя с ролью IdRole = 1.");
 
-            // Нормализуем email
             var normalizedEmail = dto.Email?.Trim().ToLowerInvariant();
 
-            // Если меняем email — проверим уникальность среди активных
             if (!string.Equals(target.Email, normalizedEmail, StringComparison.OrdinalIgnoreCase))
             {
                 var emailTaken = await _context.Users
@@ -251,7 +258,6 @@ namespace APISportFoodStore.Controllers
 
             target.Deleted = dto.Deleted;
 
-            // Пароль: если пришёл новый (и он не совпадает с хэшем в БД) — хешируем
             if (!string.IsNullOrWhiteSpace(dto.PasswordHash) && dto.PasswordHash != target.PasswordHash)
             {
                 target.PasswordHash = PasswordHelper.Hash(dto.PasswordHash);

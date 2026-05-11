@@ -420,8 +420,8 @@ DELETE FROM Orders
 WHERE UserId = 3;
 
 -- 5️⃣ Удаляем карты пользователя
-DELETE FROM UserCards
-WHERE UserId = 3;
+DELETE FROM Users
+WHERE IdUser = 4;
 
 UPDATE Users
 SET RoleId = 4
@@ -435,3 +435,29 @@ SELECT * FROM OrderDetails WHERE OrderId = 16
 
 select * from UserCards
 select * from Roles
+
+
+DELETE FROM ReviewImages WHERE ReviewId IN (SELECT IdReview FROM Reviews WHERE UserId = 4);
+DELETE FROM Reviews WHERE UserId = 4;
+
+-- 2. Очищаем корзину и избранное
+DELETE FROM Cart WHERE UserId = 5;
+DELETE FROM Favorites WHERE UserId = 5;
+
+-- 3. Чат и сообщения
+DELETE FROM ChatMessages WHERE SenderUserId = 5;
+DELETE FROM ChatEvents WHERE ActorUserId = 5;
+-- Примечание: Если пользователь - клиент в ChatSessions, нужно либо удалить сессии, либо обнулить ID
+UPDATE ChatSessions SET CustomerUserId = NULL WHERE CustomerUserId = 5;
+UPDATE ChatSessions SET AssignedAgentId = NULL WHERE AssignedAgentId = 5;
+
+-- 4. Заказы (Внимание: обычно заказы не удаляют для отчетности!)
+DELETE FROM OrderDetails WHERE OrderId IN (SELECT IdOrder FROM Orders WHERE UserId = 5);
+DELETE FROM Orders WHERE UserId = 5 OR CourierId = 5;
+
+-- 5. Карты и адреса
+DELETE FROM UserCards WHERE UserId = 5;
+DELETE FROM UserAddresses WHERE UserId = 5;
+
+-- 6. И ТЕПЕРЬ самого пользователя
+DELETE FROM Users WHERE IdUser = 7;

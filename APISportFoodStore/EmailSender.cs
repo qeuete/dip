@@ -28,7 +28,6 @@ namespace APISportFoodStore
             msg.To.Add(MailboxAddress.Parse(toEmail));
             msg.Subject = $"Ваш заказ №{order.IdOrder} оформлен";
 
-            // Генерируем строки таблицы товаров
             var itemsHtml = new StringBuilder();
             foreach (var item in items)
             {
@@ -72,12 +71,7 @@ namespace APISportFoodStore
     </p>
 
     <hr style='margin-top:20px;border:none;border-top:1px solid #eee'/>
-    <p style='font-size:13px;color:#666;margin:0'>
-        По вопросам обращайтесь в поддержку:<br/>
-        <a href='mailto:{_settings.Branding.SupportEmail}'>{_settings.Branding.SupportEmail}</a><br/>
-        Телефон: {_settings.Branding.SupportPhone}
-    </p>
-</div>";
+  </div>";
 
             msg.Body = builder.ToMessageBody();
 
