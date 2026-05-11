@@ -21,7 +21,6 @@ namespace APISportFoodStore.Logging
 
             Directory.CreateDirectory(Path.GetDirectoryName(fullPath)!);
 
-            // конфигурируем Serilog для записи в файл
             return new LoggerConfiguration()
                 .MinimumLevel.Verbose()
                 .Enrich.FromLogContext()
@@ -43,7 +42,6 @@ namespace APISportFoodStore.Logging
             var query = context.Request.QueryString.HasValue ? context.Request.QueryString.Value : "-";
             string payload = "-";
 
-            // обрабатываем только action
             if (context.Request.Method == HttpMethods.Post || context.Request.Method == HttpMethods.Put || context.Request.Method == HttpMethods.Patch)
             {
                 context.Request.EnableBuffering();
@@ -53,7 +51,6 @@ namespace APISportFoodStore.Logging
                     var form = await context.Request.ReadFormAsync();
                     var dict = form.ToDictionary(f => f.Key, f => f.Value.ToString());
 
-                    // маскируем необходимые поля
                     var keysToMask = new[] { "password", "token", "smart-token" };
                     foreach (var key in keysToMask)
                     {
@@ -66,7 +63,6 @@ namespace APISportFoodStore.Logging
                 }
                 else if (context.Request.ContentType?.Contains("application/json") == true)
                 {
-                    // считываем json тело
                     using var reader = new StreamReader(context.Request.Body, Encoding.UTF8, leaveOpen: true);
                     payload = await reader.ReadToEndAsync();
                 }

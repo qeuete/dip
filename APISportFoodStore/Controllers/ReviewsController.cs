@@ -120,19 +120,17 @@ namespace Api.Controllers
         {
             try
             {
-                // Проверяем, был ли куплен товар и заказ завершен
                 var hasCompletedOrder = await _context.OrderDetails
                     .Include(od => od.Order)
                     .AnyAsync(od => od.ProductId == reviewDto.ProductId
                                     && od.Order.UserId == reviewDto.UserId
-                                    && od.Order.OrderStatusId == 7); // только статус "Завершен"
+                                    && od.Order.OrderStatusId == 7); 
 
                 if (!hasCompletedOrder)
                 {
                     return BadRequest(new { message = "Вы можете оставить отзыв только после завершения заказа с этим товаром." });
                 }
 
-                // Проверяем, не оставлял ли пользователь уже отзыв
                 var existingReview = await _context.Reviews
                     .AnyAsync(r => r.UserId == reviewDto.UserId && r.ProductId == reviewDto.ProductId);
 
@@ -141,7 +139,6 @@ namespace Api.Controllers
                     return BadRequest(new { message = "Вы уже оставляли отзыв на этот товар" });
                 }
 
-                // Создаем новый отзыв
                 var review = new Review
                 {
                     UserId = reviewDto.UserId,
@@ -154,7 +151,6 @@ namespace Api.Controllers
                 _context.Reviews.Add(review);
                 await _context.SaveChangesAsync();
 
-                // Загружаем связанные данные для возврата
                 await _context.Entry(review).Reference(r => r.User).LoadAsync();
                 await _context.Entry(review).Reference(r => r.Product).LoadAsync();
 
@@ -176,7 +172,7 @@ namespace Api.Controllers
                 var hasCompletedOrder = await _context.Orders
                     .Include(o => o.OrderDetails)
                     .AnyAsync(o => o.UserId == userId
-                                  && o.OrderStatusId == 7 // статус "Завершен"
+                                  && o.OrderStatusId == 7 
                                   && o.OrderDetails.Any(od => od.ProductId == productId));
 
                 var hasReviewed = await _context.Reviews

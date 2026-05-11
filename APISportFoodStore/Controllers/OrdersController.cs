@@ -191,7 +191,7 @@ namespace APISportFoodStore.Controllers
         public async Task<ActionResult<IEnumerable<OrderWithDetailsDto>>> GetUserOrders(int userId)
         {
             var orders = await _context.Orders
-        .Include(o => o.UserAddress) // Загружаем адрес!
+        .Include(o => o.UserAddress) 
         .Where(o => o.UserId == userId)
         .OrderByDescending(o => o.OrderDate)
         .ToListAsync();
@@ -231,7 +231,6 @@ namespace APISportFoodStore.Controllers
                     OrderDetails = orderDetails,
                     StatusName = orderStatus?.Name ?? "Неизвестно",
                     TotalAmount = order.TotalAmount,
-                    // Собираем адрес в строку:
                     FullAddress = order.UserAddress != null
                 ? $"{order.UserAddress.City}, {order.UserAddress.Street}, д. {order.UserAddress.House}, кв. {order.UserAddress.Apartament}"
                 : "Адрес не указан"
@@ -296,7 +295,6 @@ namespace APISportFoodStore.Controllers
 
             order.CourierId = courierId;
 
-            // Если статус "Оформлен" (1), переводим в "В работе" (2)
             if (order.OrderStatusId == 1)
                 order.OrderStatusId = 2;
 

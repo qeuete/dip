@@ -1,0 +1,40 @@
+version: '3.8'
+
+services:
+  mssql_db:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    container_name: mssql_db
+    environment:
+      ACCEPT_EULA: "Y"
+      MSSQL_SA_PASSWORD: "1"
+      MSSQL_PID: "Express"
+    ports:
+      - "1433:1433"
+    volumes:
+      - mssql_data:/var/opt/mssql/data
+
+  api:
+    build:
+      context: ./APISportFoodStore
+      dockerfile: Dockerfile
+    container_name: api
+    ports:
+      - "5000:8080"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - "ConnectionStrings__DefaultConnection=Server=mssql_db;Database=FoodStoreDB;User Id=sa;Password=1;TrustServerCertificate=True;"
+    depends_on:
+      - mssql_db
+
+  web:
+    build:
+      context: ./WebAppSportFoodStore
+      dockerfile: Dockerfile
+    container_name: web
+    ports:
+      - "80:80"
+    depends_on:
+      - api
+
+volumes:
+  mssql_data:
